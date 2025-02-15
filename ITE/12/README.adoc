@@ -1,0 +1,155 @@
+= ITE-12: CDDL, CBOR, and COSE signatures
+:source-highlighter: pygments
+:toc: preamble
+:toclevels: 2
+ifdef::env-github[]
+:tip-caption: :bulb:
+:note-caption: :information_source:
+:important-caption: :heavy_exclamation_mark:
+:caution-caption: :fire:
+:warning-caption: :warning:
+endif::[]
+
+.Metadata
+[cols="2"]
+|===
+| ITE
+| 0012
+
+| Title
+| CDDL, CBOR, and COSE signatures
+
+| Sponsor
+| link:https://github.com/deeglaze [Dionna Glaze]
+
+| Status
+| Active :smile:
+
+| Type
+| Standards
+
+| Created
+| 2025-02-14
+
+|===
+
+
+[[abstract]]
+== Abstract
+
+The in-toto JSON representation is not concise.
+RFC8949 specifies a concise binary object represenation (CBOR) format that is safer to parse than ASN.1.
+RFC9052 specifies a signing envelope format that is CBOR-native.
+RFC8610 specifies a concise data description language appropriate for both JSON and CBOR.y
+This ITE proposes a change to the in-toto specification to re-express the schema in terms of CDDL and give COSE as a signing envelope choice.
+
+[[specification]]
+== Specification
+
+New predicates added to in-toto SHOULD have CBOR-specific rules for conciseness where applicable.
+
+Where JSON strings with base64 URL encodings provide a means of carrying bit-accurate binary strings, CBOR has native support for byte strings.
+
+=== ITE-9
+
+This ITE amends ITE-9 for the "Schema" section to become "Data definition".
+
+> The schema of the attestation type is the core part of the document. It defines the fields included in an instantiation of the attestation type, as well as rules to parse them.
+
+Add text
+
+> It is RECOMMENDED that simple parsing rules are delegated to a valid CDDL definition.
+> For concise binary encoding for external distribution, it is RECOMMENDED that data definitions offer more compact representations in CBOR.
+>
+>It is RECOMMENDED for specifications to use of the following CDDL generic, `JC`.
+>
+> ```cddl
+> JC<J,C> = J .feature "json" / C .feature "cbor"
+> ```
+>
+> JSON objects SHOULD have property names expressed as `JC` labels. For example,
+>
+> ```cddl
+> my-predicate = (
+>   predicateType-label => "tag:example.com,2025:in-toto-predicate",
+>   predicate-label => my-predicate-map
+> )
+> my-predicate-map = {
+>   my-predicate-specialUri-label => uri-type
+> }
+> my-predicate-specialUri-label = JC<"specialUri", 1>
+> ```
+>
+> Numbers assigned to fields SHOULD start enumerating at 1 and count upwards.
+
+=== COSE
+
+RFC9052 specifies a signing envelope format that is CBOR-native, called COSE.
+Users of the CBOR encoding of in-toto attestations are RECOMMENDED to use `COSE_Sign1` to sign the payload.
+
+[[motivation]]
+== Motivation
+
+CBOR is a strict superset of JSON in terms of its representation power.
+Binary strings are a native concept, so bandwidth-unfriendly base64 encoding is unnecessary.
+Where JSON uses (potentially long) strings for object members, CBOR maps may use small integers to save space.
+By providing a JSON and CBOR definition at the same time with CDDL, the CBOR can be deserialized to JSON for pretty-printing purposes.
+
+
+CBOR is also the representation format of choice for IETF Remote ATtestation procedureS (RATS) working group specifications.
+The attestability of runtime environments is directly related to the SLSA provenance predicate in in-toto.
+The build environment track seeks to ultimately get to a level where the node performing a build job has its boot measurements attested and verified against a policy.
+Policy engines can only do so much without reference values, which themselves are closely related to output resource descriptors of SLSA predicates.
+
+To close the gap between build-time and run-time attestation, it's useful to include the reference value formats that are specified for CBOR representation.
+Following the acceptance of ITE-12 there will be a review for in-toto Attestation Framework maintainers to include support for RATS-specific predicates.
+
+[[reasoning]]
+== Reasoning
+
+Despite CBOR's ability to also use strings for map keys, the decision to make a registry of label to integer translations is meant to achieve the goal of concision.
+
+[[backwards-compatibility]]
+== Backwards Compatibility
+
+The CDDL for JSON is 100% backwards compatible.
+
+[[security]]
+== Security
+
+The security impact of including CBOR support is dependent upon the CBOR serialization and deserialization support within respective implementation languages.
+CBOR is designed for safe, simple parsing.
+
+The security impact of using COSE may improve security if used to provide countersignatures from different principals to attest to an object's veracity.
+The arguments that DSSE makes against JWS may also apply to COSE, however.
+It is possible for a verifier to be confused about which keys it trusts and to accept an untrusted certificate chain sent in unprotected headers.
+The author is unaware of any library implementations that make such a grievous error.
+On the contrary, unprotected headers for leaf- and intermediate certificate distribution are a convenient way to rotate keys under a trust anchor without needing an online certificate database.
+
+[[infrastructure-requirements]]
+== Infrastructure Requirements
+
+The underlying serializers for in-toto may optionally include a CBOR representation.
+Verifiers that expect to be able to process all forms of in-toto will need to handle CBOR deserialization.
+
+[[testing]]
+== Testing
+
+TODO.
+The plan is to run attestation framework test cases through a CBOR encoding first and ensure the behavior is consistent with JSON.
+
+[[prototype-implementation]]
+== Prototype Implementation
+
+The in-toto base specification and predicates are updated in https://github.com/deeglaze/intoto-attestation/tree/ite12.
+SLSA provenance and VSA predicates are updated in https://github.com/deeglaze/slsa/tree/ite12.
+
+Support for a CBOR encoding that is non-disruptive to the current use of the protocol buffer compiler will require further support to add a ProtoCBOR format to protoc.
+The draft proposal for ProtoCBOR is in http://github.com/deeglaze/protocolbuffers.github.io/tree/cborrfc.
+The initial implementation in Golang for encoding/decoding ProtoCBOR from/to `proto.Message` is in ???.
+The C++, Python, and Java code generation targets are not planned requirements for the ITE.
+
+[[references]]
+== References
+
+* link:http://www.ietf.org/rfc.html[IETF RFC]
